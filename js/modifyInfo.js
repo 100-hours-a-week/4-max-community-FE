@@ -22,12 +22,28 @@ const resultElement = document.querySelector('.inputBox p[name="result"]');
 const modifyBtnElement = document.querySelector('#signupBtn');
 const profilePreview = document.querySelector('#profilePreview');
 const removeProfileButton = document.querySelector('#removeProfileButton');
-const authDataReponse = await authCheck();
-const authData = await authDataReponse.json();
-const changeData = {
-    nickname: authData.data.nickname,
-    profileImageUrl: authData.data.profileImageUrl,
+await authCheck();
+
+const userResponse = await requestJson(`${getServerUrl()}/users/me`, {
+    method: 'GET',
+    credentials: 'include',
+});
+
+console.log('users/me 응답:', userResponse);
+
+const myInfo = {
+    userId: userResponse.data.user_id,
+    email: userResponse.data.email,
+    nickname: userResponse.data.nickname,
+    profileImageUrl: userResponse.data.profile_image_url,
 };
+
+const changeData = {
+    nickname: myInfo.nickname,
+    image_id: null,
+};
+
+
 
 const DEFAULT_PROFILE_IMAGE = '../public/image/profile/default.jpg';
 const HTTP_OK = 200;
@@ -48,6 +64,11 @@ const setData = data => {
         if (removeProfileButton) removeProfileButton.style.display = 'flex';
 
         const profileImageUrl = data.profileImageUrl;
+
+        if (!profileImageUrl) {
+            return;
+        }
+
         const fileName = profileImageUrl.split('/').pop();
         localStorage.setItem('profileImageUrl', data.profileImageUrl);
 
@@ -68,8 +89,8 @@ const setData = data => {
 const observeData = () => {
     const button = document.querySelector('#signupBtn');
     if (
-        authData.data.nickname !== changeData.nickname ||
-        authData.data.profileImageUrl !== changeData.profileImageUrl
+        myInfo.nickname !== changeData.nickname ||
+        myInfo.profileImageUrl !== changeData.profileImageUrl
     ) {
         button.disabled = false;
         button.style.backgroundColor = '#7F6AEE';
@@ -96,7 +117,7 @@ const changeEventHandler = async (event, uid) => {
             if (status === HTTP_OK) {
                 helperElement.textContent = '';
                 isComplete = true;
-            } else if (authData.data.nickname === value) {
+            } else if (myInfo.data.nickname === value) {
                 helperElement.textContent = '';
                 button.disabled = true;
                 button.style.backgroundColor = '#ACA0EB';
@@ -111,7 +132,7 @@ const changeEventHandler = async (event, uid) => {
         if (isComplete) {
             changeData.nickname = value;
         } else {
-            changeData.nickname = authData.data.nickname;
+            changeData.nickname = myInfo.nickname;
         }
     } else if (uid == 'profile') {
         // 사용자가 선택한 파일
@@ -124,12 +145,12 @@ const changeEventHandler = async (event, uid) => {
             if (removeProfileButton) removeProfileButton.style.display = 'none';
         } else {
             const formData = new FormData();
-            formData.append('profileImage', file);
+            formData.append('image', file);
 
             // 파일 업로드를 위한 POST 요청 실행
             try {
                 const { ok, data } = await requestJson(
-                    `${getServerUrl()}/v1/users/upload/profile-image`,
+                    `${getServerUrl()}/images/profiles`,
                     {
                         method: 'POST',
                         body: formData,
@@ -139,11 +160,11 @@ const changeEventHandler = async (event, uid) => {
                 if (!ok) throw new Error('서버 응답 오류');
                 localStorage.setItem(
                     'profileImageUrl',
-                    data.profileImageUrl,
+                    data.image_url,
                 );
-                changeData.profileImageUrl = data.profileImageUrl;
+                changeData.image_id = Number(data.image_id)
                 profilePreview.src = resolveImageUrl(
-                    data.profileImageUrl,
+                    data.image_url,
                     DEFAULT_PROFILE_IMAGE,
                 );
                 if (removeProfileButton)
@@ -165,7 +186,7 @@ const sendModifyData = async () => {
         } else {
             const { status } = await userModify(changeData);
 
-            if (status === HTTP_CREATED) {
+            if (status === HTTP_OK) {
                 localStorage.removeItem('profileImageUrl');
                 saveToastMessage('수정완료');
                 location.href = '/html/modifyInfo.html';
@@ -185,8 +206,8 @@ const deleteAccount = async () => {
 
         if (status === HTTP_OK) {
             try {
-                await requestJson(`${getServerUrl()}/v1/auth/logout`, {
-                    method: 'POST',
+                await requestJson(`${getServerUrl()}/users/me`, {
+                    method: 'DELETE',
                     credentials: 'include',
                 });
             } catch (error) {
@@ -272,10 +293,10 @@ const displayToastFromStorage = () => {
 
 const init = () => {
     const profileImage =
-        resolveImageUrl(authData.data.profileImageUrl, DEFAULT_PROFILE_IMAGE);
+        resolveImageUrl(myInfo.profileImageUrl, DEFAULT_PROFILE_IMAGE);
 
     prependChild(document.body, Header('커뮤니티', 2, profileImage));
-    setData(authData.data);
+    setData(myInfo);
     observeData();
     addEvent();
     displayToastFromStorage();

@@ -1,18 +1,19 @@
 import BoardItem from '../component/board/boardItem.js';
 import Dialog from '../component/dialog/dialog.js';
 import Header from '../component/header/header.js';
+import { requestJson } from '../utils/request.js';
 import { authCheck, getServerUrl, prependChild, resolveImageUrl } from '../utils/function.js';
 import { getPosts, searchPosts } from '../api/indexRequest.js';
 
 const DEFAULT_PROFILE_IMAGE = '../public/image/profile/default.jpg';
 const HTTP_NOT_AUTHORIZED = 401;
 const SCROLL_THRESHOLD = 0.9;
-const INITIAL_OFFSET = 5;
 const ITEMS_PER_LOAD = 5;
 const DEFAULT_SORT = 'recent';
 let currentKeyword = '';
 let currentSort = DEFAULT_SORT;
-let offset = 0;
+
+let currentCursor = null;
 let isEnd = false;
 let isProcessing = false;
 
@@ -25,13 +26,13 @@ const updateSortVisibility = () => {
 };
 
 // getBoardItem 함수
-const getBoardItem = async (offsetValue = 0, limitValue = 5) => {
+const getBoardItem = async (cursorValue = null, limitValue = 5) => {
     const result =
         currentKeyword.trim() === ''
-            ? await getPosts(offsetValue, limitValue)
+            ? await getPosts(cursorValue, limitValue)
             : await searchPosts(
                   currentKeyword,
-                  offsetValue,
+                  cursorValue,
                   limitValue,
                   currentSort,
               );
@@ -43,21 +44,30 @@ const getBoardItem = async (offsetValue = 0, limitValue = 5) => {
 
 const setBoardItem = boardData => {
     const boardList = document.querySelector('.boardList');
-    if (boardList && boardData) {
-        const itemsHtml = boardData
+    
+    // 방어 코드 boardData뿐만 아니라 진짜 배열인 boardData.posts가 있는지 확인
+    if (boardList && boardData && boardData.posts) {
+        
+        // 덩어리(boardData) 전체가 아니라 그 안의 배열(posts)을 꺼내서 map 돌리기
+        // 백엔드에서 응답을 보낼 때 posts로 감싸서 보냈기 때문
+        const itemsHtml = boardData.posts
             .map(data =>
                 BoardItem(
-                    data.id,
-                    data.createdAt,
-                    data.title,
-                    data.viewCount,
-                    data.author ? data.author.profileImageUrl : null,
-                    data.author ? data.author.nickname : null,
-                    data.commentCount,
-                    data.likeCount,
+                    data.post_id,         // 백엔드 DTO: @JsonProperty("post_id")
+                    data.created_at,      // 백엔드 DTO: @JsonProperty("created_at")
+                    data.title,           // 백엔드 DTO: title (일치)
+                    data.view_count,      // 백엔드 DTO: @JsonProperty("view_count")
+                    
+                    //writer 객체 사용
+                    data.writer ? data.writer.profile_image_url : null,
+                    data.writer ? data.writer.nickname : null,      
+                    
+                    data.comment_count,   // 백엔드 DTO: @JsonProperty("comment_count")
+                    data.like_count       // 백엔드 DTO: @JsonProperty("like_count")
                 ),
             )
             .join('');
+            
         boardList.innerHTML += ` ${itemsHtml}`;
     }
 };
@@ -75,17 +85,21 @@ const loadBoardItems = async ({ reset = false } = {}) => {
 
     try {
         if (reset) {
-            offset = 0;
+            currentCursor = 0;
             isEnd = false;
             resetBoardList();
         }
-        const items = await getBoardItem(offset, ITEMS_PER_LOAD);
-        if (!items || items.length === 0) {
+
+        const data = await getBoardItem(currentCursor, ITEMS_PER_LOAD);
+        if (!data || !data.posts || data.posts.length === 0) {
             isEnd = true;
             return;
         }
-        setBoardItem(items);
-        offset += ITEMS_PER_LOAD;
+
+        setBoardItem(data);
+        // 백엔드에서 준 다음 커서와 진행 여부 저장
+        currentCursor = data.next_cursor;
+        isEnd = !data.has_next; 
     } catch (error) {
         console.error('Error fetching items:', error);
         isEnd = true;
@@ -133,7 +147,7 @@ const addSortEvent = () => {
 
 // 스크롤 이벤트 추가
 const addInfinityScrollEvent = () => {
-    offset = INITIAL_OFFSET;
+    currentCursor = null;
     isEnd = false;
     isProcessing = false;
 
@@ -156,8 +170,13 @@ const init = async () => {
             return;
         }
 
+        const userResponse = await requestJson(`${getServerUrl()}/users/me`, {
+            method: 'GET',
+            credentials: 'include',
+        });
+
         const profileImageUrl = resolveImageUrl(
-            data.data.profileImageUrl,
+            userResponse.data.profile_image_url,
             DEFAULT_PROFILE_IMAGE,
         );
 

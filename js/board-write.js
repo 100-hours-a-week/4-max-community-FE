@@ -52,13 +52,11 @@ const observeSignupData = () => {
 
 // 엘리먼트 값 가져오기 title, content
 const getBoardData = () => {
+    const postImageId = localStorage.getItem('postImageId');
     return {
         title: boardWrite.title,
         content: boardWrite.content,
-        attachFileUrl:
-            localStorage.getItem('postFileUrl') === null
-                ? undefined
-                : localStorage.getItem('postFileUrl'),
+        image_id: postImageId ? Number(postImageId) : null,
     };
 };
 
@@ -77,8 +75,8 @@ const addBoard = async () => {
         if (!ok) throw new Error('서버 응답 오류');
 
         if (status === HTTP_CREATED) {
-            localStorage.removeItem('postFileUrl');
-            window.location.href = `/html/board.html?id=${data.insertId}`;
+            localStorage.removeItem('postImageId');
+            window.location.href = `/html/board.html?id=${data.post_id}`;
         } else {
             const helperElement = contentHelpElement;
             helperElement.textContent = '제목, 내용을 모두 작성해주세요.';
@@ -138,13 +136,13 @@ const changeEventHandler = async (event, uid) => {
         }
 
         const formData = new FormData();
-        formData.append('postFile', file);
+        formData.append('image', file);
 
         // 파일 업로드를 위한 POST 요청 실행
         try {
             const { ok, data } = await fileUpload(formData);
             if (!ok) throw new Error('서버 응답 오류');
-            localStorage.setItem('postFileUrl', data.fileUrl);
+            localStorage.setItem('posImageId', data.image_id);
         } catch (error) {
             console.error('업로드 중 오류 발생:', error);
         }

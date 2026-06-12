@@ -1,6 +1,7 @@
 import { changePassword } from '../api/modifyPasswordRequest.js';
 import Dialog from '../component/dialog/dialog.js';
 import Header from '../component/header/header.js';
+import { requestJson } from '../utils/request.js';
 import {
     authCheck,
     getServerUrl,
@@ -13,11 +14,17 @@ const button = document.querySelector('#signupBtn');
 
 const DEFAULT_PROFILE_IMAGE = '../public/image/profile/default.jpg';
 const HTTP_CREATED = 201;
+const HTTP_OK = 200;
 
-const dataResponse = await authCheck();
-const data = await dataResponse.json();
+await authCheck();
+
+const userResponse = await requestJson(`${getServerUrl()}/users/me`, {
+    method: 'GET',
+    credentials: 'include',
+});
+
 const profileImage = resolveImageUrl(
-    data.data.profileImageUrl,
+    userResponse.data?.profile_image_url,
     DEFAULT_PROFILE_IMAGE,
 );
 
@@ -98,10 +105,10 @@ const modifyPassword = async () => {
 
     const { status } = await changePassword(password);
 
-    if (status == HTTP_CREATED) {
+    if (status == HTTP_OK) {
         try {
-            await fetch(`${getServerUrl()}/v1/auth/logout`, {
-                method: 'POST',
+            await fetch(`${getServerUrl()}/auth`, {
+                method: 'DELETE',
                 credentials: 'include',
             });
         } catch (error) {

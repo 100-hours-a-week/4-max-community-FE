@@ -2,7 +2,7 @@ import { getServerUrl } from '../utils/function.js';
 import { requestJson } from '../utils/request.js';
 
 export const userSignup = async data => {
-    const result = await requestJson(`${getServerUrl()}/v1/auth/signup`, {
+    const result = await requestJson(`${getServerUrl()}/users`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -14,7 +14,7 @@ export const userSignup = async data => {
 
 export const checkEmail = async email => {
     const result = await requestJson(
-        `${getServerUrl()}/v1/users/email/check?email=${email}`,
+        `${getServerUrl()}/users/email/check?email=${email}`,
         {
             method: 'GET',
             headers: {
@@ -27,7 +27,7 @@ export const checkEmail = async email => {
 
 export const checkNickname = async nickname => {
     const result = await requestJson(
-        `${getServerUrl()}/v1/users/nickname/check?nickname=${nickname}`,
+        `${getServerUrl()}/users/nickname/check?nickname=${nickname}`,
         {
             method: 'GET',
             headers: {
@@ -38,12 +38,13 @@ export const checkNickname = async nickname => {
     return result;
 };
 
-export const fileUpload = async file => {
+export const fileUpload = async formData => {
+
     const result = await requestJson(
-        `${getServerUrl()}/v1/users/upload/profile-image`,
+        `${getServerUrl()}/images/profiles`,
         {
             method: 'POST',
-            body: file,
+            body: formData,
         },
     );
     return result;

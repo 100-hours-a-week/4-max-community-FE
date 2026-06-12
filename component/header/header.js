@@ -1,4 +1,4 @@
-import { getServerUrl } from '../../utils/function.js';
+import { getServerUrl,clearAccessToken } from '../../utils/function.js';
 
 const headerDropdownMenu = () => {
     const wrap = document.createElement('div');
@@ -15,11 +15,12 @@ const headerDropdownMenu = () => {
     modifyPasswordLink.href = '/html/modifyPassword.html';
     logoutLink.addEventListener('click', async () => {
         try {
-            await fetch(`${getServerUrl()}/v1/auth/logout`, {
-                method: 'POST',
+            await fetch(`${getServerUrl()}/auth`, {
+                method: 'DELETE',
                 credentials: 'include',
             });
         } finally {
+            clearAccessToken();
             location.href = '/html/login.html';
         }
     });

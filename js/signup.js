@@ -22,7 +22,7 @@ const signupData = {
     email: '',
     password: '',
     nickname: '',
-    profileImageUrl: undefined,
+    profileImageUrl: null,
 };
 
 const getSignupData = () => {
@@ -37,11 +37,14 @@ const getSignupData = () => {
 
 const sendSignupData = async () => {
     const { passwordCheck, ...props } = signupData;
-    if (localStorage.getItem('profileImageUrl')) {
-        props.profileImageUrl = localStorage.getItem('profileImageUrl');
+
+    const profileImageId = localStorage.getItem('profileImageId');
+
+    if (profileImageId) {
+        props.image_id = Number(profileImageId);
     }
 
-    if (props.password > MAX_PASSWORD_LENGTH) {
+    if (props.password.length > MAX_PASSWORD_LENGTH) {
         Dialog('비밀번호', '비밀번호는 20자 이하로 입력해주세요.');
         return;
     }
@@ -81,7 +84,9 @@ const changeEventHandler = async (event, uid) => {
         const helperElement = document.querySelector(
             `.inputBox p[name="${uid}"]`,
         );
-        helperElement.textContent = '';
+        if (helperElement) {
+            helperElement.textContent = '';
+        }
     }
     observeSignupData();
 };
@@ -241,15 +246,15 @@ const uploadProfileImage = () => {
             }
 
             const formData = new FormData();
-            formData.append('profileImage', file);
+            formData.append('image', file);
 
             // 파일 업로드를 위한 POST 요청 실행
             try {
                 const { ok, data } = await fileUpload(formData);
                 if (!ok) throw new Error('서버 응답 오류');
                 localStorage.setItem(
-                    'profileImageUrl',
-                    data.profileImageUrl,
+                    'profileImageId',
+                    data.image_id,
                 );
             } catch (error) {
                 console.error('업로드 중 오류 발생:', error);

@@ -11,9 +11,12 @@ export const getServerUrl = () => {
     }
 
     const host = window.location.hostname;
-    return host.includes('localhost')
-        ? 'http://localhost:3000'
-        : `http://${host}:3000`;
+    // host가 localhost면 localhost:8080 반환
+    // host가 
+    return host.includes('localhost') || host === '127.0.0.1'
+        ? 'http://localhost:8080'
+        // /api로 프론트와 백엔드를 nginx에서 분기처리하기 위해
+        : '/api';
 };
 
 export const resolveImageUrl = (url, fallback = null) => {
@@ -21,27 +24,53 @@ export const resolveImageUrl = (url, fallback = null) => {
     if (/^https?:\/\//i.test(url)) return url;
     return `${getServerUrl()}${url}`;
 };
+// 프론트엔드 메모리에 Access Token을 담아둘 전역 변수 설정
+export let globalAccessToken = null;
 
 export const serverSessionCheck = async () => {
-    const res = await fetch(`${getServerUrl()}/v1/auth/check`, {
-        method: 'GET',
-        credentials: 'include',
+    // 페이지 이동이나 새로고침 시 이 함수가 실행
+    // 브라우저가 가진 Refresh Token 쿠키를 백엔드 /auth/reissue 로 보내서 재발급
+    // 근데 매번 재발급을 해도 괜찮을지..?
+    const res = await fetch(`${getServerUrl()}/auth/reissue`, {
+        method: 'POST', // 재발급 API 메서드에 맞춤
+        credentials: 'include', // HttpOnly 쿠키 전송 필수 옵션
     });
+
+    if (res.ok) {
+        //cloon() -> .json으로 꺼내서 읽으면 증발해버림 
+        // 즉 토큰을 빼고 다시 한번 res객체를 받아다가 또 꺼내려고 하다가 body stream alreat read 에러가 뜸
+        // 따라서 응답을 복제하면서 에러 해결
+        const json = await res.clone().json();
+        // 백엔드 ApiResponse에서 새로 발급된 accessToken을 꺼내서 메모리에 저장
+        globalAccessToken = json.data.access_token; 
+        console.log("Access Token 재발급 및 메모리 저장");
+    } else {
+        // 만약 쿠키가 만료됐거나 이상하면 메모리 비우기
+        globalAccessToken = null;
+    }
+
     return res;
 };
-
+// 로그인된 유저만 접근 가능한 페이지에서 호출함
 export const authCheck = async () => {
-    const HTTP_OK = 200;
     const response = await serverSessionCheck();
-    if (!response || response.status !== HTTP_OK)
+    // 재발급(인증)에 실패하면 로그인 페이지로 이동
+    if (!response || !response.ok) {
         location.href = '/html/login.html';
+    }
     return response;
 };
 
+export const clearAccessToken = () => {
+    globalAccessToken = null;
+};
+
+// 비로그인 유저만 접근 가능한 페이지에서 호출 로그인이나 회원가입
 export const authCheckReverse = async () => {
     const response = await serverSessionCheck();
+    // 이미 쿠키가 있어서 재발급에 성공했다면(로그인 상태라면) 메인 페이지로 이동
     if (response && response.ok) {
-        location.href = '/';
+        location.href = '/html/index.html'; // /html/index.html 로 이동
     }
 };
 // 이메일 유효성 검사

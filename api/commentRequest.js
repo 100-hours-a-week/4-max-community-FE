@@ -3,7 +3,7 @@ import { requestJson } from '../utils/request.js';
 
 export const deleteComment = (postId, commentId) => {
     const result = requestJson(
-        `${getServerUrl()}/v1/posts/${postId}/comments/${commentId}`,
+        `${getServerUrl()}/posts/${postId}/comments/${commentId}`,
         {
             method: 'DELETE',
             credentials: 'include',
@@ -12,16 +12,16 @@ export const deleteComment = (postId, commentId) => {
     return result;
 };
 
-export const updateComment = (postId, commentId, commentContent) => {
+export const updateComment = (postId, commentId, data) => {
     const result = requestJson(
-        `${getServerUrl()}/v1/posts/${postId}/comments/${commentId}`,
+        `${getServerUrl()}/posts/${postId}/comments/${commentId}`,
         {
-            method: 'PATCH',
+            method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
             },
             credentials: 'include',
-            body: JSON.stringify(commentContent),
+            body: JSON.stringify(data),
         },
     );
     return result;

@@ -127,7 +127,6 @@ const init = async () => {
     observeSignupData();
     prependChild(document.body, Header('커뮤니티', 0));
     eventSet();
-    localStorage.clear();
 };
 
 init();
