@@ -250,9 +250,7 @@ const init = async () => {
         commentBtnElement.addEventListener('click', addComment);
         commentBtnElement.disabled = true;
         console.log(myInfo);
-        if (data.status === HTTP_NOT_AUTHORIZED) {
-            window.location.href = '/html/login.html';
-        }
+        
         const profileImage = resolveImageUrl(
             myInfo.profile_image_url,
             DEFAULT_PROFILE_IMAGE,
