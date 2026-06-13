@@ -12,7 +12,7 @@ import {
     fileUpload,
     updatePost,
     getBoardItem,
-} from '../api/board-writeRequest.js';
+} from '../requests/board-writeRequest.js';
 
 const HTTP_OK = 200;
 const HTTP_CREATED = 201;

@@ -16,7 +16,7 @@ export const getServerUrl = () => {
     return host.includes('localhost') || host === '127.0.0.1'
         ? 'http://localhost:8080'
         // /api로 프론트와 백엔드를 nginx에서 분기처리하기 위해
-        : '/api/v1';
+        : '/api';
 };
 
 export const resolveImageUrl = (url, fallback = null) => {

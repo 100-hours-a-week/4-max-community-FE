@@ -12,7 +12,7 @@ import {
     checkEmail,
     checkNickname,
     fileUpload,
-} from '../api/signupRequest.js';
+} from '../requests/signupRequest.js';
 
 const MAX_PASSWORD_LENGTH = 20;
 const HTTP_OK = 200;

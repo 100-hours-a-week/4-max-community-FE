@@ -1,4 +1,4 @@
-import { changePassword } from '../api/modifyPasswordRequest.js';
+import { changePassword } from '../requests/modifyPasswordRequest.js';
 import Dialog from '../component/dialog/dialog.js';
 import Header from '../component/header/header.js';
 import { requestJson } from '../utils/request.js';
