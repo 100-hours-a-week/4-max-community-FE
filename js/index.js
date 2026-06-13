@@ -85,7 +85,7 @@ const loadBoardItems = async ({ reset = false } = {}) => {
 
     try {
         if (reset) {
-            currentCursor = 0;
+            currentCursor = null;
             isEnd = false;
             resetBoardList();
         }
@@ -147,18 +147,21 @@ const addSortEvent = () => {
 
 // 스크롤 이벤트 추가
 const addInfinityScrollEvent = () => {
-    currentCursor = null;
-    isEnd = false;
-    isProcessing = false;
+    window.addEventListener(
+        'scroll',
+        () => {
+            if (isProcessing || isEnd) return;
 
-    window.addEventListener('scroll', async () => {
-        const hasScrolledToThreshold =
-            window.scrollY + window.innerHeight >=
-            document.documentElement.scrollHeight * SCROLL_THRESHOLD;
-        if (hasScrolledToThreshold) {
-            loadBoardItems();
-        }
-    });
+            const hasScrolledToThreshold =
+                window.scrollY + window.innerHeight >=
+                document.documentElement.scrollHeight * SCROLL_THRESHOLD;
+
+            if (hasScrolledToThreshold) {
+                loadBoardItems();
+            }
+        },
+        { passive: true },
+    );
 };
 
 const init = async () => {
