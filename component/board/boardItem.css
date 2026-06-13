@@ -4,11 +4,13 @@
     width: 100%;
 
     padding: 16px 0;
-    border: 1px solid rgba(241, 241, 243, 1);
-    border-radius: 8px;
+
+    background-color: #ffffff;
+    border: 1px solid #d8d8de;
+    border-radius: 14px;
 
     cursor: pointer;
-    box-shadow: 3px 4px 4px 0px #cccccc40;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
 }
 
 .boardItem .date {
