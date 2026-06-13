@@ -1,6 +1,7 @@
 import CommentItem from '../component/comment/comment.js';
 import Dialog from '../component/dialog/dialog.js';
 import Header from '../component/header/header.js';
+import { requestJson } from '../utils/request.js';
 import {
     authCheck,
     getServerUrl,
@@ -229,13 +230,18 @@ const inputComment = async () => {
 
 const init = async () => {
     try {
-        const data = await authCheck();
-        const myInfoResult = await data.json();
-        if (data.status !== HTTP_OK) {
-            throw new Error('사용자 정보를 불러오는데 실패하였습니다.');
+        const response = await authCheck();
+
+        if (!response || !response.ok) {
+            return;
         }
 
-        const myInfo = myInfoResult.data;
+        const userResponse = await requestJson(`${getServerUrl()}/users/me`, {
+            method: 'GET',
+            credentials: 'include',
+        });
+
+        const myInfo = userResponse.data;
         const commentBtnElement = document.querySelector('.commentInputBtn');
         const textareaElement = document.querySelector(
             '.commentInputWrap textarea',
@@ -248,7 +254,7 @@ const init = async () => {
             window.location.href = '/html/login.html';
         }
         const profileImage = resolveImageUrl(
-            myInfo.profileImageUrl,
+            myInfo.profile_image_url,
             DEFAULT_PROFILE_IMAGE,
         );
 
