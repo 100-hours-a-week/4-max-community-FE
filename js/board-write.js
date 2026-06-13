@@ -1,5 +1,6 @@
 import Dialog from '../component/dialog/dialog.js';
 import Header from '../component/header/header.js';
+import { requestJson } from '../utils/request.js';
 import {
     authCheck,
     getQueryString,
@@ -224,28 +225,45 @@ const setModifyData = data => {
 };
 
 const init = async () => {
-    const dataResponse = await authCheck();
-    const data = await dataResponse.json();
-    const modifyId = checkModifyMode();
+    const response = await authCheck();
+
+    if (!response || !response.ok) {
+        return;
+    }
+
+    // 현재 로그인 사용자 정보 조회
+    const userResponse = await requestJson(`${getServerUrl()}/users/me`, {
+        method: 'GET',
+        credentials: 'include',
+    });
+
+    if (!userResponse.ok) {
+        throw new Error('사용자 정보 조회 실패');
+    }
+
+    const myInfo = userResponse.data;
 
     const profileImage = resolveImageUrl(
-        data.data.profileImageUrl,
+        myInfo.profile_image_url,
         DEFAULT_PROFILE_IMAGE,
     );
 
     prependChild(document.body, Header('커뮤니티', 1, profileImage));
 
+    const modifyId = checkModifyMode();
+
     if (modifyId) {
         isModifyMode = true;
         modifyData = await getBoardModifyData(modifyId);
 
-        if (data.idx !== modifyData.writerId) {
+        if (!modifyData.is_writer) {
             Dialog('권한 없음', '권한이 없습니다.', () => {
-                window.location.href = '/';
+                window.location.href = '/html/index.html';
             });
-        } else {
-            setModifyData(modifyData);
+            return;
         }
+
+        setModifyData(modifyData);
     }
 
     addEvent();
