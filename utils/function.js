@@ -11,18 +11,51 @@ export const getServerUrl = () => {
     }
 
     const host = window.location.hostname;
-    // host가 localhost면 localhost:8080 반환
-    // host가 
+
     return host.includes('localhost') || host === '127.0.0.1'
         ? 'http://localhost:8080'
-        // /api로 프론트와 백엔드를 nginx에서 분기처리하기 위해
-        : '/api';
+        : 'https://api.max-cm.cloud';
 };
 
 export const resolveImageUrl = (url, fallback = null) => {
     if (!url) return fallback;
-    if (/^https?:\/\//i.test(url)) return url;
-    return `${getServerUrl()}${url}`;
+
+    const imageUrl = String(url).trim();
+
+    // 이미 완성된 URL이면 그대로 사용
+    if (/^https?:\/\//i.test(imageUrl)) {
+        return imageUrl;
+    }
+
+    const host = window.location.hostname;
+    const isLocal = host.includes('localhost') || host === '127.0.0.1';
+
+    // 로컬 환경
+    // local DB 값: /uploads/posts/abc.png
+    // 혹은 prod 형식 값: posts/abc.png
+    if (isLocal) {
+        if (imageUrl.startsWith('/uploads/')) {
+            return `${getServerUrl()}${imageUrl}`;
+        }
+
+        return `${getServerUrl()}/uploads/${imageUrl.replace(/^\/+/, '')}`;
+    }
+
+    // 배포 환경
+    const CDN_BASE_URL =
+        typeof window !== 'undefined' &&
+        window.__APP_CONFIG__ &&
+        window.__APP_CONFIG__.CDN_BASE_URL
+            ? String(window.__APP_CONFIG__.CDN_BASE_URL).trim().replace(/\/+$/, '')
+            : 'https://cdn.max-cm.cloud';
+
+    // 기존 /uploads/posts/abc.png 형태가 오면 posts/abc.png로 바꿔서 CDN에 붙임
+    if (imageUrl.startsWith('/uploads/')) {
+        return `${CDN_BASE_URL}/${imageUrl.replace('/uploads/', '')}`;
+    }
+
+    // 새 구조: posts/abc.png, profiles/abc.png
+    return `${CDN_BASE_URL}/${imageUrl.replace(/^\/+/, '')}`;
 };
 // 프론트엔드 메모리에 Access Token을 담아둘 전역 변수 설정
 export let globalAccessToken = null;
