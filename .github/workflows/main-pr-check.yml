@@ -1,0 +1,82 @@
+name: Main PR Check
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-container-check:
+    name: JavaScript Syntax, Docker Build And Container Check
+
+    # dev 브랜치에서 main 브랜치로 보내는 PR만 실행
+    if: github.head_ref == 'dev'
+
+    runs-on: ubuntu-latest
+
+    steps:
+      # GitHub Actions Runner로 Repository 코드 가져오기
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      # JavaScript 문법 검사를 위한 Node.js 설정
+      - name: Set Up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      # 프로젝트 JavaScript 파일 문법 검사
+      - name: Check JavaScript Syntax
+        run: |
+          find . \
+            -type f \
+            -name "*.js" \
+            -not -path "./node_modules/*" \
+            -exec node --check {} \;
+
+      # 운영 배포에 사용할 구조와 동일한 Frontend Docker Image 생성
+      - name: Build Frontend Docker Image
+        run: |
+          docker build \
+            -t community-frontend:main-pr-check \
+            .
+
+      # 생성한 Image를 임시 Container로 실행한 뒤 HTTP 응답 확인
+      - name: Run And Check Frontend Container
+        run: |
+          CONTAINER_NAME="community-frontend-main-pr-check"
+
+          cleanup() {
+            docker rm -f "${CONTAINER_NAME}" > /dev/null 2>&1 || true
+          }
+
+          trap cleanup EXIT
+
+          docker run \
+            --detach \
+            --name "${CONTAINER_NAME}" \
+            --publish 8081:80 \
+            community-frontend:main-pr-check
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 10 \
+            --retry-delay 1 \
+            --retry-connrefused \
+            http://localhost:8081/health
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            http://localhost:8081/html/index.html
