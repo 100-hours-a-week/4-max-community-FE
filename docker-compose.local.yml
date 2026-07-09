@@ -1,0 +1,10 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: community-frontend:local
+    container_name: community-frontend-local
+    ports:
+      - "3000:80"
+    restart: unless-stopped
