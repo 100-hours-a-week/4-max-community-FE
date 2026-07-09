@@ -1,0 +1,36 @@
+name: Dev Merge CI
+
+on:
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  javascript-syntax-check:
+    name: JavaScript Syntax Check
+
+    runs-on: ubuntu-latest
+
+    steps:
+      # GitHub Actions Runner로 Repository 코드 가져오기
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      # JavaScript 문법 검사용 Node.js 설정
+      - name: Set Up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      # 프로젝트 JavaScript 파일 문법 검사
+      - name: Check JavaScript Syntax
+        run: |
+          find . \
+            -type f \
+            -name "*.js" \
+            -not -path "./node_modules/*" \
+            -exec node --check {} \;
