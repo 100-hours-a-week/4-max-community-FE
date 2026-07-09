@@ -1,9 +1,9 @@
-name: Feature Push CI
+name: Dev Merge CI
 
 on:
   push:
     branches:
-      - "feature/**"
+      - dev
 
 permissions:
   contents: read
@@ -15,18 +15,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Repository 코드 가져오기
+      # GitHub Actions Runner로 Repository 코드 가져오기
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      # JavaScript 문법 검사를 위한 Node.js 설정
+      # JavaScript 문법 검사용 Node.js 설정
       - name: Set Up Node.js
         uses: actions/setup-node@v6
         with:
           node-version: "22"
           package-manager-cache: false
 
-      # 프로젝트의 JavaScript 파일 문법 검사
+      # 프로젝트 JavaScript 파일 문법 검사
       - name: Check JavaScript Syntax
         run: |
           find . \

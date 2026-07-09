@@ -1,0 +1,50 @@
+name: Dev PR Check
+
+on:
+  pull_request:
+    branches:
+      - dev
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-check:
+    name: JavaScript Syntax And Docker Build
+
+    # feature/** 브랜치에서 dev 브랜치로 보내는 PR만 실행
+    if: startsWith(github.head_ref, 'feature/')
+
+    runs-on: ubuntu-latest
+
+    steps:
+      # GitHub Actions Runner로 Repository 코드 가져오기
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      # JavaScript 문법 검사용 Node.js 설정
+      - name: Set Up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      # 프로젝트 JavaScript 파일 문법 검사
+      - name: Check JavaScript Syntax
+        run: |
+          find . \
+            -type f \
+            -name "*.js" \
+            -not -path "./node_modules/*" \
+            -exec node --check {} \;
+
+      # 실제 Frontend Docker Image 생성 가능 여부 확인
+      - name: Build Frontend Docker Image
+        run: |
+          docker build \
+            -t community-frontend:dev-pr-check \
+            .
