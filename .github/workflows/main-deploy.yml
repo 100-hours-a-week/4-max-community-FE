@@ -1,9 +1,8 @@
 name: Main Deploy
 
+# 새 EC2 환경의 CD를 연결하기 전까지 기존 배포는 수동으로만 실행한다.
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
