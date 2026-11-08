@@ -27,6 +27,12 @@ export const resolveImageUrl = (url, fallback = null) => {
         return imageUrl;
     }
 
+    const configuredImageBase = window.__APP_CONFIG__?.CDN_BASE_URL?.trim();
+    if (configuredImageBase) {
+        const imageKey = imageUrl.replace(/^\/uploads\/|^\/+/, '');
+        return configuredImageBase.replace(/\/+$/, '') + '/' + imageKey;
+    }
+
     const host = window.location.hostname;
     const isLocal = host.includes('localhost') || host === '127.0.0.1';
 
@@ -41,13 +47,8 @@ export const resolveImageUrl = (url, fallback = null) => {
         return `${getServerUrl()}/uploads/${imageUrl.replace(/^\/+/, '')}`;
     }
 
-    // 배포 환경
-    const CDN_BASE_URL =
-        typeof window !== 'undefined' &&
-        window.__APP_CONFIG__ &&
-        window.__APP_CONFIG__.CDN_BASE_URL
-            ? String(window.__APP_CONFIG__.CDN_BASE_URL).trim().replace(/\/+$/, '')
-            : 'https://cdn.max-cm.cloud';
+    // 기존 배포의 기본 이미지 주소
+    const CDN_BASE_URL = 'https://cdn.max-cm.cloud';
 
     // 기존 /uploads/posts/abc.png 형태가 오면 posts/abc.png로 바꿔서 CDN에 붙임
     if (imageUrl.startsWith('/uploads/')) {

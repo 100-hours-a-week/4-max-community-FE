@@ -19,6 +19,7 @@ COPY js/ /usr/share/nginx/html/js/
 COPY public/ /usr/share/nginx/html/public/
 COPY requests/ /usr/share/nginx/html/requests/
 COPY utils/ /usr/share/nginx/html/utils/
+COPY config.js favicon.ico /usr/share/nginx/html/
 
 EXPOSE 80
 
