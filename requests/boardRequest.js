@@ -28,10 +28,26 @@ export const writeComment = async (pageId, comment) => {
     return result;
 };
 
-export const getComments = async postId => {
-    const result = await requestJson(`${getServerUrl()}/posts/${postId}/comments`, {
-        credentials: 'include',
-    });
+export const getComments = (
+    postId,
+    cursor = null,
+    size = 10,
+) => {
+    const query = new URLSearchParams();
+
+    if (cursor) {
+        query.append('cursor', cursor);
+    }
+
+    query.append('size', size);
+
+    const result = requestJson(
+        `${getServerUrl()}/posts/${postId}/comments?${query.toString()}`,
+        {
+            credentials: 'include',
+        },
+    );
+
     return result;
 };
 

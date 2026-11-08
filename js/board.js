@@ -23,6 +23,13 @@ const MAX_COMMENT_LENGTH = 1000;
 const HTTP_NOT_AUTHORIZED = 401;
 const HTTP_OK = 200;
 
+const COMMENT_PAGE_SIZE = 10;
+const COMMENT_SCROLL_THRESHOLD = 0.9;
+
+let currentCommentCursor = null;
+let isCommentEnd = false;
+let isCommentProcessing = false;
+
 const formatCount = value => {
     const count = Number(value);
     if (!Number.isFinite(count)) return value ?? '';
@@ -172,11 +179,61 @@ const setBoardModify = async (data, myInfo) => {
         });
     };
 
-const getBoardComment = async id => {
-    const { ok, status, data } = await getComments(id);
-    if (!ok) return [];
-    if (status !== HTTP_OK) return [];
-    return data.comments;
+const loadBoardComments = async (
+    postId,
+    myInfo,
+    { reset = false } = {},
+) => {
+    if (isCommentProcessing || (!reset && isCommentEnd)) {
+        return;
+    }
+
+    isCommentProcessing = true;
+
+    try {
+        if (reset) {
+            currentCommentCursor = null;
+            isCommentEnd = false;
+
+            const commentListElement =
+                document.querySelector('.commentList');
+
+            if (commentListElement) {
+                commentListElement.innerHTML = '';
+            }
+        }
+
+        const { ok, status, data } = await getComments(
+            postId,
+            currentCommentCursor,
+            COMMENT_PAGE_SIZE,
+        );
+
+        if (!ok || status !== HTTP_OK || !data) {
+            isCommentEnd = true;
+            return;
+        }
+
+        if (!data.comments || data.comments.length === 0) {
+            isCommentEnd = true;
+            return;
+        }
+
+        setBoardComment(
+            data.comments,
+            myInfo,
+            postId,
+        );
+
+        // 게시글 목록과 동일하게 백엔드 응답값 저장
+        currentCommentCursor = data.cursor;
+        isCommentEnd = !data.has_next;
+    } catch (error) {
+        console.error('댓글 목록 조회 실패:', error);
+        isCommentEnd = true;
+    } finally {
+        isCommentProcessing = false;
+    }
 };
 
 const setBoardComment = (data, myInfo,postId) => {
@@ -192,6 +249,38 @@ const setBoardComment = (data, myInfo,postId) => {
             commentListElement.appendChild(item);
         });
     }
+};
+
+const addCommentInfinityScrollEvent = (
+    postId,
+    myInfo,
+) => {
+    window.addEventListener(
+        'scroll',
+        () => {
+            if (
+                isCommentProcessing ||
+                isCommentEnd
+            ) {
+                return;
+            }
+
+            const hasScrolledToThreshold =
+                window.scrollY + window.innerHeight >=
+                document.documentElement.scrollHeight *
+                    COMMENT_SCROLL_THRESHOLD;
+
+            if (hasScrolledToThreshold) {
+                loadBoardComments(
+                    postId,
+                    myInfo,
+                );
+            }
+        },
+        {
+            passive: true,
+        },
+    );
 };
 
 const addComment = async () => {
@@ -249,7 +338,6 @@ const init = async () => {
         textareaElement.addEventListener('input', inputComment);
         commentBtnElement.addEventListener('click', addComment);
         commentBtnElement.disabled = true;
-        console.log(myInfo);
         
         const profileImage = resolveImageUrl(
             myInfo.profile_image_url,
@@ -267,7 +355,16 @@ const init = async () => {
         }   
         setBoardDetail(pageData);
 
-        getBoardComment(pageId).then(data => setBoardComment(data, myInfo,pageId));
+        await loadBoardComments(
+            pageId,
+            myInfo,
+            { reset: true },
+        );
+
+        addCommentInfinityScrollEvent(
+            pageId,
+            myInfo,
+        );
     } catch (error) {
         console.error(error);
     }
