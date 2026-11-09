@@ -3,44 +3,17 @@ import Dialog from '../component/dialog/dialog.js';
 import Header from '../component/header/header.js';
 import { requestJson } from '../utils/request.js';
 import { authCheck, getServerUrl, prependChild, resolveImageUrl } from '../utils/function.js';
-import { getPosts, searchPosts } from '../requests/indexRequest.js';
+import { getPosts } from '../requests/indexRequest.js';
 
 const DEFAULT_PROFILE_IMAGE = '../public/image/profile/default.jpg';
 const HTTP_NOT_AUTHORIZED = 401;
 const SCROLL_THRESHOLD = 0.9;
 const ITEMS_PER_LOAD = 5;
-const DEFAULT_SORT = 'recent';
 let currentKeyword = '';
-let currentSort = DEFAULT_SORT;
 
 let currentCursor = null;
 let isEnd = false;
-let isProcessing = false;
-
-const updateSortVisibility = () => {
-    const sortRow = document.querySelector('#searchSortRow');
-    if (!sortRow) return;
-    const isSearching = currentKeyword.trim().length > 0;
-    sortRow.classList.toggle('isHidden', !isSearching);
-    sortRow.setAttribute('aria-hidden', String(!isSearching));
-};
-
-// getBoardItem 함수
-const getBoardItem = async (cursorValue = null, limitValue = 5) => {
-    const result =
-        currentKeyword.trim() === ''
-            ? await getPosts(cursorValue, limitValue)
-            : await searchPosts(
-                  currentKeyword,
-                  cursorValue,
-                  limitValue,
-                  currentSort,
-              );
-    if (!result.ok) {
-        throw new Error('Failed to load post list.');
-    }
-    return result.data;
-};
+let activeRequest = null;
 
 const setBoardItem = boardData => {
     const boardList = document.querySelector('.boardList');
@@ -80,31 +53,43 @@ const resetBoardList = () => {
 };
 
 const loadBoardItems = async ({ reset = false } = {}) => {
-    if (isProcessing || (!reset && isEnd)) return;
-    isProcessing = true;
+    if (!reset && (activeRequest || isEnd)) return;
+
+    if (reset) {
+        // 이전 검색 응답이 새 목록과 커서를 덮어쓰지 않도록 취소한다.
+        activeRequest?.abort();
+        currentCursor = null;
+        isEnd = false;
+        resetBoardList();
+    }
+
+    const request = new AbortController();
+    activeRequest = request;
 
     try {
-        if (reset) {
-            currentCursor = null;
-            isEnd = false;
-            resetBoardList();
+        const result = await getPosts(currentCursor, ITEMS_PER_LOAD, currentKeyword, request.signal);
+        if (request.signal.aborted) return;
+        if (!result.ok) {
+            throw new Error('Failed to load post list.');
         }
 
-        const data = await getBoardItem(currentCursor, ITEMS_PER_LOAD);
-        if (!data || !data.posts || data.posts.length === 0) {
+        const data = result.data;
+        if (!data?.posts?.length) {
             isEnd = true;
             return;
         }
 
         setBoardItem(data);
-        // 백엔드에서 준 다음 커서와 진행 여부 저장
         currentCursor = data.next_cursor;
-        isEnd = !data.has_next; 
+        isEnd = !data.has_next;
     } catch (error) {
+        if (request.signal.aborted) return;
         console.error('Error fetching items:', error);
         isEnd = true;
     } finally {
-        isProcessing = false;
+        if (activeRequest === request) {
+            activeRequest = null;
+        }
     }
 };
 
@@ -120,7 +105,6 @@ const addSearchEvent = () => {
             return;
         }
         currentKeyword = trimmedKeyword;
-        updateSortVisibility();
         await loadBoardItems({ reset: true });
     };
 
@@ -133,24 +117,12 @@ const addSearchEvent = () => {
     });
 };
 
-const addSortEvent = () => {
-    const sortSelect = document.querySelector('#searchSortSelect');
-    if (!sortSelect) return;
-    sortSelect.value = currentSort;
-
-    sortSelect.addEventListener('change', async () => {
-        currentSort = sortSelect.value || DEFAULT_SORT;
-        if (currentKeyword.trim().length === 0) return;
-        await loadBoardItems({ reset: true });
-    });
-};
-
 // 스크롤 이벤트 추가
 const addInfinityScrollEvent = () => {
     window.addEventListener(
         'scroll',
         () => {
-            if (isProcessing || isEnd) return;
+            if (activeRequest || isEnd) return;
 
             const hasScrolledToThreshold =
                 window.scrollY + window.innerHeight >=
@@ -188,11 +160,9 @@ const init = async () => {
             Header('Community', 0, profileImageUrl),
         );
 
-        updateSortVisibility();
         await loadBoardItems({ reset: true });
 
         addSearchEvent();
-        addSortEvent();
         addInfinityScrollEvent();
     } catch (error) {
         console.error('Initialization failed:', error);
