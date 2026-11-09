@@ -16,9 +16,6 @@ jobs:
   frontend-container-check:
     name: JavaScript Syntax, Docker Build And Container Check
 
-    # dev 브랜치에서 main 브랜치로 보내는 PR만 실행
-    if: github.head_ref == 'dev'
-
     runs-on: ubuntu-latest
 
     steps:
@@ -36,11 +33,10 @@ jobs:
       # 프로젝트 JavaScript 파일 문법 검사
       - name: Check JavaScript Syntax
         run: |
-          find . \
-            -type f \
-            -name "*.js" \
-            -not -path "./node_modules/*" \
-            -exec node --check {} \;
+          set -euo pipefail
+          while IFS= read -r -d '' source; do
+            node --check "$source"
+          done < <(find . -type f -name '*.js' -not -path './node_modules/*' -not -path './.git/*' -print0)
 
       # 운영 배포에 사용할 구조와 동일한 Frontend Docker Image 생성
       - name: Build Frontend Docker Image
