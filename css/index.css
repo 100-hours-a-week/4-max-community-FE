@@ -52,59 +52,6 @@
     gap: 12px;
 }
 
-.sortRow {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    margin-top: -12px;
-    margin-bottom: 8px;
-}
-
-.sortBox {
-    margin-right: 10px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border-radius: 12px;
-    border: 1px solid #e5e5e5;
-    background-color: #ffffff;
-}
-
-.sortIcon {
-    color: #7f6aee;
-}
-
-.sortLabel {
-    font-size: 14px;
-    line-height: 20px;
-    letter-spacing: -0.02em;
-    color: #454854;
-}
-
-.sortSelect {
-    border: none;
-    background: transparent;
-    font-size: 14px;
-    line-height: 20px;
-    letter-spacing: -0.02em;
-    color: #454854;
-    padding: 2px 4px;
-    outline: none;
-    cursor: pointer;
-}
-
-.sortSelect:focus-visible {
-    outline: 2px solid #7f6aee;
-    outline-offset: 2px;
-    border-radius: 6px;
-}
-
-.isHidden {
-    display: none;
-}
-
 .searchBox {
     flex: 1 1 auto;
     max-width: 520px;
