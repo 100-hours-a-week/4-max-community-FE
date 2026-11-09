@@ -9,83 +9,62 @@ const DEFAULT_PROFILE_IMAGE = '../public/image/profile/default.jpg';
 const HTTP_NOT_AUTHORIZED = 401;
 const SCROLL_THRESHOLD = 0.9;
 const ITEMS_PER_LOAD = 5;
-let currentKeyword = '';
-
-let currentCursor = null;
-let isEnd = false;
+const boardViews = new Map();
+let nextViewNumber = 0;
+let currentView;
 let activeRequest = null;
+let lastScrollY = 0;
 
-const setBoardItem = boardData => {
+const createBoardView = keyword => ({
+    keyword,
+    posts: [],
+    cursor: null,
+    isEnd: false,
+    loaded: false,
+    scrollY: 0,
+});
+
+const appendBoardItems = posts => {
     const boardList = document.querySelector('.boardList');
-    
-    // 방어 코드 boardData뿐만 아니라 진짜 배열인 boardData.posts가 있는지 확인
-    if (boardList && boardData && boardData.posts) {
-        
-        // 덩어리(boardData) 전체가 아니라 그 안의 배열(posts)을 꺼내서 map 돌리기
-        // 백엔드에서 응답을 보낼 때 posts로 감싸서 보냈기 때문
-        const itemsHtml = boardData.posts
-            .map(data =>
-                BoardItem(
-                    data.post_id,         // 백엔드 DTO: @JsonProperty("post_id")
-                    data.created_at,      // 백엔드 DTO: @JsonProperty("created_at")
-                    data.title,           // 백엔드 DTO: title (일치)
-                    data.view_count,      // 백엔드 DTO: @JsonProperty("view_count")
-                    
-                    //writer 객체 사용
-                    data.writer ? data.writer.profile_image_url : null,
-                    data.writer ? data.writer.nickname : null,      
-                    
-                    data.comment_count,   // 백엔드 DTO: @JsonProperty("comment_count")
-                    data.like_count       // 백엔드 DTO: @JsonProperty("like_count")
-                ),
-            )
-            .join('');
-            
-        boardList.innerHTML += ` ${itemsHtml}`;
-    }
+    const itemsHtml = posts
+        .map(post => BoardItem(
+            post.post_id,
+            post.created_at,
+            post.title,
+            post.view_count,
+            post.writer?.profile_image_url,
+            post.writer?.nickname,
+            post.comment_count,
+            post.like_count,
+        ))
+        .join('');
+    boardList.insertAdjacentHTML('beforeend', itemsHtml);
 };
 
-const resetBoardList = () => {
-    const boardList = document.querySelector('.boardList');
-    if (boardList) {
-        boardList.innerHTML = '';
-    }
-};
-
-const loadBoardItems = async ({ reset = false } = {}) => {
-    if (!reset && (activeRequest || isEnd)) return;
-
-    if (reset) {
-        // 이전 검색 응답이 새 목록과 커서를 덮어쓰지 않도록 취소한다.
-        activeRequest?.abort();
-        currentCursor = null;
-        isEnd = false;
-        resetBoardList();
-    }
+const loadBoardItems = async () => {
+    if (activeRequest || currentView.isEnd) return;
 
     const request = new AbortController();
     activeRequest = request;
+    const view = currentView;
 
     try {
-        const result = await getPosts(currentCursor, ITEMS_PER_LOAD, currentKeyword, request.signal);
+        const result = await getPosts(view.cursor, ITEMS_PER_LOAD, view.keyword, request.signal);
         if (request.signal.aborted) return;
         if (!result.ok) {
             throw new Error('Failed to load post list.');
         }
 
-        const data = result.data;
-        if (!data?.posts?.length) {
-            isEnd = true;
-            return;
-        }
-
-        setBoardItem(data);
-        currentCursor = data.next_cursor;
-        isEnd = !data.has_next;
+        const posts = result.data?.posts ?? [];
+        appendBoardItems(posts);
+        view.posts.push(...posts);
+        view.cursor = result.data?.next_cursor;
+        view.isEnd = posts.length === 0 || !result.data?.has_next;
+        view.loaded = true;
     } catch (error) {
         if (request.signal.aborted) return;
         console.error('Error fetching items:', error);
-        isEnd = true;
+        view.isEnd = true;
     } finally {
         if (activeRequest === request) {
             activeRequest = null;
@@ -93,24 +72,80 @@ const loadBoardItems = async ({ reset = false } = {}) => {
     }
 };
 
+const showBoardView = view => {
+    activeRequest?.abort();
+    activeRequest = null;
+    currentView = view;
+
+    document.querySelector('#searchInput').value = view.keyword;
+    document.querySelector('.boardList').replaceChildren();
+    if (view.loaded) {
+        appendBoardItems(view.posts);
+    } else {
+        view.isEnd = false;
+        loadBoardItems();
+    }
+
+    window.scrollTo({ top: view.scrollY, behavior: 'instant' });
+    lastScrollY = window.scrollY;
+};
+
+const openBoardView = (keyword, url) => {
+    const boardViewId = performance.timeOrigin + ':' + nextViewNumber++;
+    const state = { ...history.state, boardViewId };
+    if (url) {
+        history.pushState(state, '', url);
+    } else {
+        history.replaceState(state, '');
+    }
+
+    const view = createBoardView(keyword);
+    boardViews.set(boardViewId, view);
+    showBoardView(view);
+};
+
+const restoreBoardView = () => {
+    const view = boardViews.get(history.state?.boardViewId);
+    if (view) {
+        showBoardView(view);
+        return;
+    }
+
+    const keyword = new URL(window.location.href).searchParams.get('keyword')?.trim() ?? '';
+    openBoardView(keyword.length >= 2 ? keyword : '');
+};
+
 const addSearchEvent = () => {
     const searchInput = document.querySelector('#searchInput');
     const searchButton = document.querySelector('.searchButton');
     if (!searchInput || !searchButton) return;
 
-    const runSearch = async () => {
+    const runSearch = () => {
         const trimmedKeyword = searchInput.value.trim();
         if (trimmedKeyword.length > 0 && trimmedKeyword.length < 2) {
             Dialog('검색 실패', '검색어는 2글자 이상 입력해주세요.');
             return;
         }
-        currentKeyword = trimmedKeyword;
-        await loadBoardItems({ reset: true });
+        if (trimmedKeyword === currentView.keyword) {
+            const view = createBoardView(trimmedKeyword);
+            boardViews.set(history.state.boardViewId, view);
+            showBoardView(view);
+            return;
+        }
+
+        currentView.scrollY = window.scrollY;
+        const url = new URL(window.location.href);
+        if (trimmedKeyword) {
+            url.searchParams.set('keyword', trimmedKeyword);
+        } else {
+            url.searchParams.delete('keyword');
+        }
+        openBoardView(trimmedKeyword, url);
     };
 
     searchButton.addEventListener('click', runSearch);
     searchInput.addEventListener('keydown', event => {
-        if (event.key === 'Enter') {
+        if (event.key === 'Enter' && !event.isComposing) {
             event.preventDefault();
             runSearch();
         }
@@ -122,7 +157,11 @@ const addInfinityScrollEvent = () => {
     window.addEventListener(
         'scroll',
         () => {
-            if (activeRequest || isEnd) return;
+            const scrollY = window.scrollY;
+            if (scrollY === lastScrollY) return;
+            lastScrollY = scrollY;
+            currentView.scrollY = scrollY;
+            if (activeRequest || currentView.isEnd) return;
 
             const hasScrolledToThreshold =
                 window.scrollY + window.innerHeight >=
@@ -160,7 +199,13 @@ const init = async () => {
             Header('Community', 0, profileImageUrl),
         );
 
-        await loadBoardItems({ reset: true });
+        // 목록을 그린 뒤 스크롤을 복원해야 하므로 브라우저의 자동 복원을 끈다.
+        history.scrollRestoration = 'manual';
+        restoreBoardView();
+        window.addEventListener('popstate', () => {
+            currentView.scrollY = window.scrollY;
+            restoreBoardView();
+        });
 
         addSearchEvent();
         addInfinityScrollEvent();
