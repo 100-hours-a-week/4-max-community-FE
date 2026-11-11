@@ -11,6 +11,15 @@
     overflow-y: scroll;
 }
 
+.boardStatus {
+    margin: 0;
+    padding: 24px 16px;
+    text-align: center;
+    color: #454854;
+    font-size: 16px;
+    line-height: 26px;
+}
+
 .write {
     display: flex;
     flex-direction: column;

@@ -9,6 +9,7 @@ const DEFAULT_PROFILE_IMAGE = '../public/image/profile/default.jpg';
 const HTTP_NOT_AUTHORIZED = 401;
 const SCROLL_THRESHOLD = 0.9;
 const ITEMS_PER_LOAD = 5;
+const LOADING_DELAY_MS = 300;
 const boardViews = new Map();
 let nextViewNumber = 0;
 let currentView;
@@ -21,6 +22,7 @@ const createBoardView = keyword => ({
     cursor: null,
     isEnd: false,
     loaded: false,
+    errorMessage: '',
     scrollY: 0,
 });
 
@@ -41,12 +43,35 @@ const appendBoardItems = posts => {
     boardList.insertAdjacentHTML('beforeend', itemsHtml);
 };
 
+const setBoardStatus = (message = '') => {
+    const status = document.querySelector('.boardStatus');
+    status.textContent = message;
+    status.hidden = !message;
+};
+
+const renderBoardStatus = view => {
+    let message = view.errorMessage;
+    if (!message && view.loaded && view.posts.length === 0) {
+        message = view.keyword ? '검색 결과가 없습니다.' : '등록된 게시글이 없습니다.';
+    }
+    setBoardStatus(message);
+};
+
 const loadBoardItems = async () => {
     if (activeRequest || currentView.isEnd) return;
 
     const request = new AbortController();
     activeRequest = request;
     const view = currentView;
+    view.errorMessage = '';
+    setBoardStatus();
+    const loadingTimer = setTimeout(() => {
+        if (activeRequest === request && !request.signal.aborted) {
+            const isFirstSearch = view.keyword && view.posts.length === 0;
+            setBoardStatus(isFirstSearch ? '검색 중입니다…' : '게시글을 불러오는 중입니다…');
+        }
+    }, LOADING_DELAY_MS);
+    request.signal.addEventListener('abort', () => clearTimeout(loadingTimer), { once: true });
 
     try {
         const result = await getPosts(view.cursor, ITEMS_PER_LOAD, view.keyword, request.signal);
@@ -64,10 +89,13 @@ const loadBoardItems = async () => {
     } catch (error) {
         if (request.signal.aborted) return;
         console.error('Error fetching items:', error);
+        view.errorMessage = '게시글을 불러오지 못했습니다.';
         view.isEnd = true;
     } finally {
+        clearTimeout(loadingTimer);
         if (activeRequest === request) {
             activeRequest = null;
+            renderBoardStatus(view);
         }
     }
 };
@@ -79,8 +107,10 @@ const showBoardView = view => {
 
     document.querySelector('#searchInput').value = view.keyword;
     document.querySelector('.boardList').replaceChildren();
+    setBoardStatus();
     if (view.loaded) {
         appendBoardItems(view.posts);
+        renderBoardStatus(view);
     } else {
         view.isEnd = false;
         loadBoardItems();
